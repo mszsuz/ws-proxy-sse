@@ -1,0 +1,18 @@
+{
+  "proxy": {
+    "port": 3001,
+    "host": "localhost",
+    "sseTimeout": 0
+  },
+  "testServer": {
+    "port": 8081,
+    "host": "localhost",
+    "responseCount": 3,
+    "responseDelay": 1000
+  },
+  "testClient": {
+    "message": "Hello Server!",
+    "maxMessages": 3,
+    "sendDelay": 1000
+  }
+}
