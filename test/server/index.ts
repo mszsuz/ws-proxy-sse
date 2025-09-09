@@ -37,9 +37,24 @@ server.post('/events', async (request, reply) => {
       sequence: i
     });
     
-    // Формат SSE: id, data и два переноса строки в конце
-    reply.raw.write(`id: echo-${Date.now()}-${i}\n`);
-    reply.raw.write(`data: ${echoMessage}\n\n`);
+    // Отправляем разные типы SSE сообщений для демонстрации
+    if (i === 1) {
+      // Первое сообщение - обычное с ID
+      reply.raw.write(`id: echo-${Date.now()}-${i}\n`);
+      reply.raw.write(`data: ${echoMessage}\n\n`);
+    } else if (i === 2) {
+      // Второе сообщение - с типом события
+      reply.raw.write(`id: echo-${Date.now()}-${i}\n`);
+      reply.raw.write(`event: user-message\n`);
+      reply.raw.write(`data: ${echoMessage}\n\n`);
+    } else {
+      // Третье сообщение - с retry и множественными data полями
+      reply.raw.write(`id: echo-${Date.now()}-${i}\n`);
+      reply.raw.write(`event: final-message\n`);
+      reply.raw.write(`retry: 5000\n`);
+      reply.raw.write(`data: ${echoMessage}\n`);
+      reply.raw.write(`data: Additional data line\n\n`);
+    }
     
     console.log(`📤 Echo ${i}/${responseCount}: ${receivedMessage}`);
     

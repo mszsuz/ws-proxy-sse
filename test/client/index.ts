@@ -90,8 +90,27 @@ ws.on('message', (data: Buffer) => {
       console.log(`📋 Server headers:`, message.payload.headers);
     }
   } else if (message.type === 'data') {
+    // Старый формат (для обратной совместимости)
     const data = JSON.parse(message.payload);
     console.log(`📥 Echo: ${data.response}`);
+    // Получили ответ, но ждем закрытия соединения
+  } else if (message.type === 'sse-event') {
+    // Новый формат с полными SSE полями
+    const sseData = message.payload;
+    console.log(`📥 SSE Event [${sseData.event}]:`);
+    if (sseData.id) {
+      console.log(`   🆔 ID: ${sseData.id}`);
+    }
+    if (sseData.retry) {
+      console.log(`   🔄 Retry: ${sseData.retry}ms`);
+    }
+    
+    try {
+      const echoData = JSON.parse(sseData.data);
+      console.log(`   📝 Data: ${echoData.response || sseData.data}`);
+    } catch (e) {
+      console.log(`   📝 Data: ${sseData.data}`);
+    }
     // Получили ответ, но ждем закрытия соединения
   } else if (message.type === 'closed') {
     console.log(`🔚 Server closed: ${message.payload.reason}`);

@@ -82,6 +82,14 @@ fastify.register(async function (fastify) {
           }
           
           try {
+            // Объект для накопления полей SSE сообщения
+            let currentMessage: {
+              id?: string;
+              event?: string;
+              data?: string[];
+              retry?: string;
+            } = {};
+
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
@@ -97,32 +105,54 @@ fastify.register(async function (fastify) {
                 if (line.startsWith('data:')) {
                   const data = line.substring(5).trim();
                   if (data) {
-                    const dataMsg = JSON.stringify({ type: 'data', payload: data });
-                    try {
-                      const echoData = JSON.parse(data);
-                      console.log(`📥 Echo: ${echoData.response}`);
-                    } catch (e) {
-                      console.log(`📥 Data: ${data}`);
+                    if (!currentMessage.data) {
+                      currentMessage.data = [];
                     }
-                    socket.send(dataMsg);
+                    currentMessage.data.push(data);
                   }
                 } else if (line.startsWith('event:')) {
                   const event = line.substring(6).trim();
-                  console.log(`📡 SSE Event: ${event}`);
+                  currentMessage.event = event;
                 } else if (line.startsWith('id:')) {
                   const id = line.substring(3).trim();
-                  console.log(`🆔 SSE ID: ${id}`);
+                  currentMessage.id = id;
                 } else if (line.startsWith('retry:')) {
                   const retry = line.substring(6).trim();
-                  console.log(`🔄 SSE Retry: ${retry}`);
+                  currentMessage.retry = retry;
                 } else if (line.trim() === '') {
-                  // Пустая строка - конец сообщения
-                  console.log(`📨 SSE message complete`);
-                  // Если получили данные и пустую строку, считаем что сообщение завершено
-                  if (hasReceivedData) {
-                    if (timeout) clearTimeout(timeout);
-                    break;
+                  // Пустая строка - конец сообщения, отправляем накопленные данные
+                  if (currentMessage.data && currentMessage.data.length > 0) {
+                    const sseMessage = {
+                      type: 'sse-event',
+                      payload: {
+                        id: currentMessage.id,
+                        event: currentMessage.event || 'message',
+                        data: currentMessage.data.join('\n'), // Объединяем множественные data поля
+                        retry: currentMessage.retry
+                      }
+                    };
+                    
+                    const messageStr = JSON.stringify(sseMessage);
+                    socket.send(messageStr);
+                    
+                    // Логируем для отладки
+                    try {
+                      const echoData = JSON.parse(currentMessage.data.join('\n'));
+                      console.log(`📥 SSE Event [${currentMessage.event || 'message'}]: ${echoData.response || currentMessage.data.join('\n')}`);
+                    } catch (e) {
+                      console.log(`📥 SSE Event [${currentMessage.event || 'message'}]: ${currentMessage.data.join('\n')}`);
+                    }
+                    
+                    if (currentMessage.id) {
+                      console.log(`🆔 SSE ID: ${currentMessage.id}`);
+                    }
+                    if (currentMessage.retry) {
+                      console.log(`🔄 SSE Retry: ${currentMessage.retry}`);
+                    }
                   }
+                  
+                  // Сбрасываем объект для следующего сообщения
+                  currentMessage = {};
                 }
               }
             }
